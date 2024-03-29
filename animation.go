@@ -13,13 +13,16 @@ type Animation struct {
 	screen tcell.Screen
 	mu     sync.Mutex
 	frame  int
+	train  *Train
+	logo   *Logo
+	trees  *Trees
 }
 
-func (a *Animation) DrawText(x1, y1, x2, y2 int, text string) {
+func (a *Animation) DrawText(x1, y1, x2, y2 int, text string, style tcell.Style) {
 	row := y1
 	col := x1
 	for _, r := range []rune(text) {
-		a.screen.SetContent(col, row, r, nil, tcell.StyleDefault)
+		a.screen.SetContent(col, row, r, nil, style)
 		col++
 		if col >= x2 {
 			row++
@@ -31,8 +34,8 @@ func (a *Animation) DrawText(x1, y1, x2, y2 int, text string) {
 	}
 }
 
-func CenterPosition(s tcell.Screen) (x int, y int) {
-	x, y = s.Size()
+func (a *Animation) centerPosition() (x, y int) {
+	x, y = a.screen.Size()
 	return x / 2, y / 2
 }
 
@@ -60,7 +63,10 @@ func NewAnimation() *Animation {
 	}
 	a := &Animation{
 		screen: screen,
-		frame:  0,
+		frame:  1,
+		train:  NewTrain(),
+		logo:   NewLogo(),
+		trees:  NewTrees(),
 	}
 
 	return a
@@ -72,9 +78,9 @@ func (g *Animation) exit() {
 }
 
 func (a *Animation) resizeScreen() {
-	// a.mu.Lock()
+	a.mu.Lock()
 	a.screen.Sync()
-	// a.mu.Unlock()
+	a.mu.Unlock()
 }
 
 func (a *Animation) handleKeyBoardEvents() {
@@ -90,10 +96,10 @@ func (a *Animation) handleKeyBoardEvents() {
 	}
 }
 
-func (a *Animation) drawObject(s []string, x int, y int) {
+func (a *Animation) drawObject(s []string, x, y int, style tcell.Style) {
 	for i, v := range s {
 		sLen := len(v)
-		a.DrawText(x, y+i, x+sLen, y+i, v)
+		a.DrawText(x, y+i, x+sLen, y+i, v, style)
 	}
 }
 
@@ -104,10 +110,13 @@ func (a *Animation) run() {
 
 	row := 0
 	for {
+		cx, cy := a.centerPosition()
 		select {
 		case <-ticker.C:
 			a.updateScreen(func() {
-				a.drawObject(RenderTrain(a.frame), 10, 5)
+				a.trees.render(a, 10, cy-15)
+				a.train.render(a, cx, cy)
+				a.logo.render(a, 5, 5)
 			})
 			a.frame++
 			row++
